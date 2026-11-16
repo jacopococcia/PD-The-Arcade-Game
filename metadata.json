@@ -1,0 +1,8 @@
+{
+  "name": "Il Sindaco di Paglieta",
+  "description": "Platform arcade ambientato a Paglieta in Abruzzo: guida il Sindaco a raccogliere i cocktail ed evitare i cittadini arrabbiati.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
