@@ -5,6 +5,7 @@ import {
   Enemy,
   FloatingText,
   LevelConfig,
+  LevelLandmark,
   MovingPlatform,
   Particle,
   Platform,
@@ -47,19 +48,34 @@ const THEME_PALETTES: Record<LevelConfig['theme'], ThemePalette> = {
     groundBorder: '#573B21',
     isNight: false,
   },
-  borgo: {
-    skyTop: '#3E81C4',
-    skyBottom: '#F5C48F',
-    sunColor: '#FFE09E',
-    sunGlow: 'rgba(255, 190, 100, 0.35)',
-    mountainFar: '#7382A6',
-    mountainSnow: '#EFEFF6',
-    hillBack: '#7A8E4B',
-    hillFront: '#5F7137',
-    townSilhouette: '#B06A48',
-    groundTop: '#B58963',
-    groundBody: '#7D5137',
-    groundBorder: '#4A2F20',
+  piane: {
+    skyTop: '#4A90D9',
+    skyBottom: '#FDE8B4',
+    sunColor: '#FFF3B8',
+    sunGlow: 'rgba(255, 214, 120, 0.35)',
+    mountainFar: '#7E95B8',
+    mountainSnow: '#F4F7FB',
+    hillBack: '#7EA34D',
+    hillFront: '#93A647',
+    townSilhouette: '#B57B52',
+    groundTop: '#769E3B',
+    groundBody: '#7D5836',
+    groundBorder: '#4A331D',
+    isNight: false,
+  },
+  collemici: {
+    skyTop: '#2E77B8',
+    skyBottom: '#D6ECFA',
+    sunColor: '#FFFBE0',
+    sunGlow: 'rgba(255, 245, 190, 0.3)',
+    mountainFar: '#6C84AB',
+    mountainSnow: '#FFFFFF',
+    hillBack: '#5D8E49',
+    hillFront: '#467036',
+    townSilhouette: '#9E7458',
+    groundTop: '#4E9A3E',
+    groundBody: '#725238',
+    groundBorder: '#422D1D',
     isNight: false,
   },
   maiella: {
@@ -78,18 +94,18 @@ const THEME_PALETTES: Record<LevelConfig['theme'], ThemePalette> = {
     isNight: false,
   },
   sagra: {
-    skyTop: '#131C3B',
-    skyBottom: '#352A54',
-    sunColor: '#F6E7B0',
-    sunGlow: 'rgba(246, 231, 176, 0.22)',
-    mountainFar: '#273156',
-    mountainSnow: '#93A2C7',
-    hillBack: '#243C38',
-    hillFront: '#1A2D2A',
-    townSilhouette: '#3B2C3E',
-    groundTop: '#8C6B50',
-    groundBody: '#4E392C',
-    groundBorder: '#2B1E17',
+    skyTop: '#140814',
+    skyBottom: '#4A1525',
+    sunColor: '#FB923C',
+    sunGlow: 'rgba(239, 68, 68, 0.28)',
+    mountainFar: '#2A1830',
+    mountainSnow: '#8E6D8A',
+    hillBack: '#26171C',
+    hillFront: '#1A1114',
+    townSilhouette: '#2D171E',
+    groundTop: '#57534E',
+    groundBody: '#292524',
+    groundBorder: '#1C1917',
     isNight: true,
   },
 };
@@ -171,8 +187,12 @@ export function renderGameFrame(rc: RenderContext): void {
   // 2. Distant Maiella Mountain Massif (parallax 0.14)
   drawMaiellaRange(ctx, cameraX * 0.14, worldVisibleW, palette);
 
-  // 3. Abruzzo Rolling Hills & Paglieta Borgo Silhouette (parallax 0.28)
-  drawPaglietaHillsAndBorgo(ctx, cameraX * 0.28, worldVisibleW, palette, time);
+  // 3. Abruzzo Hills / Flat Plains for Le Piane
+  if (level.theme === 'piane') {
+    drawLePianePlains(ctx, cameraX * 0.25, worldVisibleW, palette, time);
+  } else {
+    drawPaglietaHillsAndBorgo(ctx, cameraX * 0.28, worldVisibleW, palette, time);
+  }
 
   // Apply World Camera + Shake
   ctx.save();
@@ -181,6 +201,14 @@ export function renderGameFrame(rc: RenderContext): void {
   // Festive Luminarie Garlands in Level 4
   if (palette.isNight) {
     drawLuminarie(ctx, level.width, cameraX, worldVisibleW, time);
+  }
+
+  // 3b. Level Landmarks (Pizzeria da Filoteo, Istituto Agrario, Tractors, Hay Bales)
+  if (level.landmarks) {
+    for (const lm of level.landmarks) {
+      if (lm.x + lm.w < cameraX - 120 || lm.x > cameraX + worldVisibleW + 120) continue;
+      drawLandmark(ctx, lm, time);
+    }
   }
 
   // 4. Platforms
@@ -397,12 +425,902 @@ function drawPaglietaHillsAndBorgo(
     ctx.fill();
   }
 
-  // Subtle celebratory banner in sagra night
+  // Purge-night fire glow & rising smoke over distant Paglieta
   if (palette.isNight) {
-    const pulse = 0.7 + 0.3 * Math.sin(time * 4);
-    ctx.fillStyle = `rgba(251, 191, 36, ${0.08 * pulse})`;
-    ctx.fillRect(0, 420, viewW, 120);
+    const pulse = 0.65 + 0.35 * Math.sin(time * 7);
+    ctx.fillStyle = `rgba(239, 68, 68, ${0.14 * pulse})`;
+    ctx.fillRect(0, 390, viewW, 150);
+    ctx.fillStyle = `rgba(249, 115, 22, ${0.1 * pulse})`;
+    ctx.fillRect(0, 440, viewW, 100);
   }
+}
+
+function drawLePianePlains(
+  ctx: CanvasRenderingContext2D,
+  scroll: number,
+  viewW: number,
+  palette: ThemePalette,
+  time: number
+): void {
+  const span = 820;
+  const start = Math.floor(scroll / span) * span - span;
+
+  // Distant low rise with Paglieta borgo perched above the plain
+  for (let bx = start; bx < scroll + viewW + span; bx += span) {
+    const px = bx - scroll;
+    ctx.fillStyle = palette.hillBack;
+    ctx.beginPath();
+    ctx.moveTo(px, 500);
+    ctx.quadraticCurveTo(px + 200, 390, px + 430, 445);
+    ctx.lineTo(px + 820, 455);
+    ctx.lineTo(px + 820, 500);
+    ctx.closePath();
+    ctx.fill();
+
+    // Distant Paglieta skyline
+    const tx = px + 185;
+    const ty = 398;
+    ctx.fillStyle = palette.townSilhouette;
+    ctx.fillRect(tx - 38, ty + 8, 30, 24);
+    ctx.fillRect(tx - 8, ty + 2, 36, 30);
+    ctx.fillRect(tx + 28, ty + 10, 26, 22);
+    ctx.fillRect(tx + 4, ty - 24, 14, 30);
+    ctx.beginPath();
+    ctx.moveTo(tx + 2, ty - 24);
+    ctx.lineTo(tx + 11, ty - 40);
+    ctx.lineTo(tx + 20, ty - 24);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Wide flat cultivated plain ("Le Piane") — golden wheat & green crop strips
+  ctx.fillStyle = '#B7B14A';
+  ctx.fillRect(0, 452, viewW, 44);
+  ctx.fillStyle = '#6D993E';
+  ctx.fillRect(0, 492, viewW, 60);
+
+  // Diagonal plowed field furrows in perspective
+  const rowSpan = 160;
+  const rowStart = Math.floor((scroll * 1.15) / rowSpan) * rowSpan - rowSpan;
+  ctx.strokeStyle = 'rgba(72, 95, 34, 0.35)';
+  ctx.lineWidth = 3;
+  for (let rx = rowStart; rx < scroll * 1.15 + viewW + rowSpan; rx += rowSpan) {
+    const x0 = rx - scroll * 1.15;
+    ctx.beginPath();
+    ctx.moveTo(x0 + 35, 454);
+    ctx.lineTo(x0 - 20, 545);
+    ctx.stroke();
+
+    // Small distant poplar/cypress windbreak trees between fields
+    ctx.fillStyle = '#4B6B2E';
+    ctx.fillRect(x0 + 30, 434, 8, 20);
+    ctx.beginPath();
+    ctx.arc(x0 + 34, 430, 10, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Animated distant tractor plowing across the plain
+  const bgTractorX = ((time * 32 - scroll * 0.65) % (viewW + 260)) - 120;
+  const bgTractorY = 474;
+  ctx.save();
+  ctx.translate(bgTractorX, bgTractorY);
+  ctx.fillStyle = '#C2410C';
+  ctx.fillRect(-14, -10, 22, 10);
+  ctx.fillRect(-10, -18, 12, 8);
+  ctx.fillStyle = '#1E293B';
+  ctx.beginPath();
+  ctx.arc(-8, 2, 6, 0, Math.PI * 2);
+  ctx.arc(7, 4, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawLandmark(ctx: CanvasRenderingContext2D, lm: LevelLandmark, time: number): void {
+  switch (lm.kind) {
+    case 'tractor':
+      drawTractorLandmark(ctx, lm, time);
+      break;
+    case 'hay_bale':
+      drawHayBaleLandmark(ctx, lm);
+      break;
+    case 'pizzeria_filoteo':
+      drawPizzeriaFiloteo(ctx, lm, time);
+      break;
+    case 'istituto_agrario':
+      drawIstitutoAgrario(ctx, lm);
+      break;
+    case 'park_trees':
+      drawParkScenery(ctx, lm);
+      break;
+    case 'ruspa':
+      drawRuspaLandmark(ctx, lm, time);
+      break;
+    case 'pizzeria_tumini':
+      drawPizzeriaTumini(ctx, lm, time);
+      break;
+    case 'soccer_field':
+      drawSoccerField(ctx, lm, time);
+      break;
+    case 'purge_chaos':
+      drawPurgeChaosLandmark(ctx, lm, time);
+      break;
+  }
+}
+
+function drawTractorLandmark(ctx: CanvasRenderingContext2D, lm: LevelLandmark, time: number): void {
+  const { x, y, variant } = lm;
+  const bodyColor = variant === 'green' ? '#15803D' : '#DC2626';
+  const darkBody = variant === 'green' ? '#14532D' : '#991B1B';
+
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Exhaust smoke puffs
+  const puff = (time * 1.8) % 1;
+  ctx.fillStyle = `rgba(226, 232, 240, ${0.55 * (1 - puff)})`;
+  ctx.beginPath();
+  ctx.arc(105, -78 - puff * 26, 6 + puff * 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Exhaust pipe
+  ctx.fillStyle = '#334155';
+  ctx.fillRect(102, -74, 6, 24);
+
+  // Cab (roof aligns with platform at y - 85)
+  ctx.fillStyle = '#E2E8F0';
+  ctx.fillRect(24, -85, 58, 38);
+  ctx.fillStyle = 'rgba(56, 189, 248, 0.55)';
+  ctx.fillRect(30, -79, 46, 26);
+  // Cab roof cap
+  ctx.fillStyle = bodyColor;
+  ctx.beginPath();
+  ctx.roundRect(16, -91, 74, 9, 4);
+  ctx.fill();
+
+  // Engine Hood & Chassis
+  ctx.fillStyle = bodyColor;
+  ctx.beginPath();
+  ctx.roundRect(14, -52, 108, 28, 6);
+  ctx.fill();
+  ctx.fillStyle = darkBody;
+  ctx.fillRect(78, -46, 40, 6);
+
+  // Front radiator grille & headlight
+  ctx.fillStyle = '#1E293B';
+  ctx.fillRect(114, -48, 8, 20);
+  ctx.fillStyle = '#FDE047';
+  ctx.beginPath();
+  ctx.arc(122, -43, 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Big Rear Treaded Wheel
+  ctx.fillStyle = '#18181B';
+  ctx.beginPath();
+  ctx.arc(36, -24, 24, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#FACC15';
+  ctx.beginPath();
+  ctx.arc(36, -24, 11, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#334155';
+  ctx.beginPath();
+  ctx.arc(36, -24, 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Front Wheel
+  ctx.fillStyle = '#18181B';
+  ctx.beginPath();
+  ctx.arc(104, -16, 16, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#FACC15';
+  ctx.beginPath();
+  ctx.arc(104, -16, 7, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawHayBaleLandmark(ctx: CanvasRenderingContext2D, lm: LevelLandmark): void {
+  const { x, y } = lm;
+  ctx.save();
+  ctx.translate(x, y);
+
+  const drawBale = (bx: number, by: number) => {
+    ctx.fillStyle = '#D97706';
+    ctx.beginPath();
+    ctx.arc(bx, by, 22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#F59E0B';
+    ctx.beginPath();
+    ctx.arc(bx, by, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#92400E';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(bx, by, 12, 0.3, Math.PI * 1.85);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(bx, by, 6, 0, Math.PI * 1.6);
+    ctx.stroke();
+  };
+
+  drawBale(24, -22);
+  drawBale(72, -22);
+  drawBale(48, -58);
+  ctx.restore();
+}
+
+function drawPizzeriaFiloteo(ctx: CanvasRenderingContext2D, lm: LevelLandmark, time: number): void {
+  const { x, y, w } = lm;
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Brick oven chimney on the right with warm smoke puffs
+  ctx.fillStyle = '#9A3412';
+  ctx.fillRect(w - 58, -252, 28, 44);
+  ctx.fillStyle = '#7C2D12';
+  ctx.fillRect(w - 62, -256, 36, 8);
+  for (let i = 0; i < 3; i++) {
+    const t = (time * 0.7 + i * 0.33) % 1;
+    ctx.fillStyle = `rgba(255, 247, 237, ${0.55 * (1 - t)})`;
+    ctx.beginPath();
+    ctx.arc(w - 44 + Math.sin(time * 2 + i) * 5, -264 - t * 38, 7 + t * 8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Main warm stucco building
+  ctx.fillStyle = '#F5E6C8';
+  ctx.fillRect(0, -210, w, 210);
+  ctx.strokeStyle = '#9A6B42';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(0, -210, w, 210);
+
+  // Terracotta sloped roof trim (aligns with y = 330 roof platform)
+  ctx.fillStyle = '#B93822';
+  ctx.fillRect(-8, -216, w + 16, 14);
+  ctx.fillStyle = '#7F1D1D';
+  ctx.fillRect(-8, -204, w + 16, 4);
+
+  // First floor balcony railing (aligns with y = 430 terrace platform)
+  ctx.fillStyle = '#78350F';
+  ctx.fillRect(8, -112, w - 16, 8);
+  ctx.strokeStyle = '#292524';
+  ctx.lineWidth = 2;
+  for (let rx = 20; rx < w - 16; rx += 22) {
+    ctx.beginPath();
+    ctx.moveTo(rx, -112);
+    ctx.lineTo(rx, -126);
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.moveTo(12, -126);
+  ctx.lineTo(w - 12, -126);
+  ctx.stroke();
+
+  // Illuminated Signboard: "PIZZERIA DA FILOTEO"
+  ctx.fillStyle = '#7F1D1D';
+  ctx.beginPath();
+  ctx.roundRect(26, -184, w - 52, 42, 8);
+  ctx.fill();
+  ctx.strokeStyle = '#FBBF24';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  ctx.fillStyle = '#FEF08A';
+  ctx.font = '800 18px "Bricolage Grotesque", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('PIZZERIA DA FILOTEO', w / 2, -163);
+
+  // Warm glowing brick arch entrance & wood-fired oven glow
+  ctx.fillStyle = '#EA580C';
+  ctx.beginPath();
+  ctx.roundRect(w / 2 - 36, -86, 72, 86, [36, 36, 0, 0]);
+  ctx.fill();
+  ctx.fillStyle = '#431407';
+  ctx.beginPath();
+  ctx.roundRect(w / 2 - 26, -76, 52, 76, [26, 26, 0, 0]);
+  ctx.fill();
+
+  // Glowing oven arch inside
+  const ovenGlow = 0.7 + 0.3 * Math.sin(time * 8);
+  ctx.fillStyle = `rgba(251, 146, 60, ${ovenGlow})`;
+  ctx.beginPath();
+  ctx.arc(w / 2, -16, 16, Math.PI, 0);
+  ctx.fill();
+
+  // Warm windows on left & right
+  const drawWindow = (wx: number, wy: number) => {
+    ctx.fillStyle = '#FDE047';
+    ctx.fillRect(wx, wy, 42, 46);
+    ctx.strokeStyle = '#5C3415';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(wx, wy, 42, 46);
+    ctx.beginPath();
+    ctx.moveTo(wx + 21, wy);
+    ctx.lineTo(wx + 21, wy + 46);
+    ctx.moveTo(wx, wy + 23);
+    ctx.lineTo(wx + 42, wy + 23);
+    ctx.stroke();
+  };
+  drawWindow(36, -78);
+  drawWindow(w - 78, -78);
+
+  // Outdoor pizzeria table with pizza box
+  ctx.fillStyle = '#78350F';
+  ctx.fillRect(26, -24, 38, 5);
+  ctx.fillRect(42, -19, 5, 19);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(32, -30, 24, 6);
+  ctx.fillStyle = '#DC2626';
+  ctx.fillRect(38, -28, 12, 2);
+
+  ctx.restore();
+}
+
+function drawIstitutoAgrario(ctx: CanvasRenderingContext2D, lm: LevelLandmark): void {
+  const { x, y, w } = lm;
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Left & Right Wings (2 stories, weathered ochre concrete)
+  ctx.fillStyle = '#B6AC9A';
+  ctx.fillRect(0, -180, w, 180);
+  ctx.strokeStyle = '#6E675C';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(0, -180, w, 180);
+
+  // Central Monumental Block & Pediment (reaches roof platform y = 270)
+  const midX = w / 2 - 125;
+  ctx.fillStyle = '#C4BAA7';
+  ctx.fillRect(midX, -270, 250, 270);
+  ctx.strokeStyle = '#6E675C';
+  ctx.strokeRect(midX, -270, 250, 270);
+
+  // Triangular Classical Pediment on top
+  ctx.fillStyle = '#9C9281';
+  ctx.beginPath();
+  ctx.moveTo(midX - 12, -270);
+  ctx.lineTo(w / 2, -308);
+  ctx.lineTo(midX + 262, -270);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Faded Institutional Sign: "ISTITUTO AGRARIO"
+  ctx.fillStyle = '#44403C';
+  ctx.fillRect(midX + 20, -252, 210, 34);
+  ctx.strokeStyle = '#78716C';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(midX + 20, -252, 210, 34);
+  ctx.fillStyle = '#E7E5E4';
+  ctx.font = '800 15px "Bricolage Grotesque", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('ISTITUTO AGRARIO', w / 2, -238);
+  ctx.fillStyle = '#A8A29E';
+  ctx.font = '700 9px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText('EX COMPLESSO ABBANDONATO', w / 2, -225);
+
+  // Grid of dark / broken / boarded-up windows
+  const drawAbandonedWindow = (wx: number, wy: number, boarded: boolean) => {
+    ctx.fillStyle = '#1C1917';
+    ctx.fillRect(wx, wy, 36, 48);
+    ctx.strokeStyle = '#57534E';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(wx, wy, 36, 48);
+
+    // Cracked glass shard highlight
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.25)';
+    ctx.beginPath();
+    ctx.moveTo(wx + 2, wy + 2);
+    ctx.lineTo(wx + 22, wy + 2);
+    ctx.lineTo(wx + 2, wy + 24);
+    ctx.closePath();
+    ctx.fill();
+
+    if (boarded) {
+      // Wooden planks nailed across window
+      ctx.fillStyle = '#78350F';
+      ctx.save();
+      ctx.translate(wx + 18, wy + 24);
+      ctx.rotate(0.28);
+      ctx.fillRect(-20, -4, 40, 7);
+      ctx.rotate(-0.56);
+      ctx.fillRect(-20, -4, 40, 7);
+      ctx.restore();
+    }
+  };
+
+  // Left Wing Windows (2 floors)
+  [28, 92, 156].forEach((wx, idx) => {
+    drawAbandonedWindow(wx, -152, idx === 1);
+    drawAbandonedWindow(wx, -76, idx !== 1);
+  });
+
+  // Right Wing Windows (2 floors)
+  [w - 192, w - 128, w - 64].forEach((wx, idx) => {
+    drawAbandonedWindow(wx, -152, idx === 0);
+    drawAbandonedWindow(wx, -76, idx === 2);
+  });
+
+  // Central Upper Windows
+  drawAbandonedWindow(midX + 34, -196, false);
+  drawAbandonedWindow(midX + 107, -196, true);
+  drawAbandonedWindow(midX + 180, -196, false);
+
+  // Portico Columns & Rusted Entrance Gate
+  ctx.fillStyle = '#A89F8D';
+  ctx.fillRect(midX + 16, -95, 16, 95);
+  ctx.fillRect(midX + 218, -95, 16, 95);
+
+  ctx.fillStyle = '#292524';
+  ctx.fillRect(midX + 75, -86, 100, 86);
+  // Rusty iron bars
+  ctx.strokeStyle = '#7C2D12';
+  ctx.lineWidth = 3;
+  for (let gx = midX + 85; gx < midX + 170; gx += 16) {
+    ctx.beginPath();
+    ctx.moveTo(gx, -84);
+    ctx.lineTo(gx, 0);
+    ctx.stroke();
+  }
+
+  // Weathering cracks on plaster
+  ctx.strokeStyle = 'rgba(68, 64, 60, 0.55)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(74, -180);
+  ctx.lineTo(82, -150);
+  ctx.lineTo(75, -130);
+  ctx.moveTo(w - 95, -180);
+  ctx.lineTo(w - 102, -140);
+  ctx.stroke();
+
+  // Creeping overgrown ivy & weeds along walls and roof
+  const drawIvy = (ix: number, iy: number, len: number) => {
+    ctx.fillStyle = '#3F6212';
+    for (let k = 0; k < len; k += 12) {
+      ctx.beginPath();
+      ctx.arc(ix + Math.sin(k) * 4, iy + k, 7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#65A30D';
+    for (let k = 6; k < len; k += 16) {
+      ctx.beginPath();
+      ctx.arc(ix + 4, iy + k, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  };
+  drawIvy(16, -180, 95);
+  drawIvy(midX + 22, -270, 140);
+  drawIvy(midX + 224, -180, 120);
+  drawIvy(w - 28, -180, 110);
+
+  // Overgrown bushes at the base
+  ctx.fillStyle = '#365314';
+  for (let bx = 18; bx < w - 18; bx += 68) {
+    if (bx > midX + 60 && bx < midX + 185) continue;
+    ctx.beginPath();
+    ctx.arc(bx, -6, 14, Math.PI, 0);
+    ctx.arc(bx + 18, -4, 11, Math.PI, 0);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function drawParkScenery(ctx: CanvasRenderingContext2D, lm: LevelLandmark): void {
+  const { x, y } = lm;
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Lush park trees in Collemici
+  const treePositions = [55, 285, 510, 645];
+  for (let i = 0; i < treePositions.length; i++) {
+    const tx = treePositions[i];
+    ctx.fillStyle = '#5C3A21';
+    ctx.fillRect(tx - 6, -92, 12, 92);
+    ctx.fillStyle = '#3F7D2D';
+    ctx.beginPath();
+    ctx.arc(tx, -108, 34, 0, Math.PI * 2);
+    ctx.arc(tx - 20, -90, 24, 0, Math.PI * 2);
+    ctx.arc(tx + 22, -90, 24, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#65A30D';
+    ctx.beginPath();
+    ctx.arc(tx - 6, -116, 20, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Park benches
+  for (const bx of [110, 560]) {
+    ctx.fillStyle = '#78350F';
+    ctx.fillRect(bx, -26, 48, 6);
+    ctx.fillRect(bx, -16, 48, 5);
+    ctx.fillStyle = '#1E293B';
+    ctx.fillRect(bx + 6, -26, 4, 26);
+    ctx.fillRect(bx + 38, -26, 4, 26);
+  }
+
+  // Red & white construction barrier ("LAVORI")
+  const cx = 345;
+  ctx.fillStyle = '#475569';
+  ctx.fillRect(cx + 6, -34, 4, 34);
+  ctx.fillRect(cx + 58, -34, 4, 34);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(cx, -32, 68, 13);
+  ctx.fillStyle = '#DC2626';
+  ctx.fillRect(cx + 8, -32, 14, 13);
+  ctx.fillRect(cx + 36, -32, 14, 13);
+
+  ctx.restore();
+}
+
+function drawRuspaLandmark(ctx: CanvasRenderingContext2D, lm: LevelLandmark, time: number): void {
+  const { x, y } = lm;
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Dirt mound being dug by the ruspa
+  ctx.fillStyle = '#784826';
+  ctx.beginPath();
+  ctx.moveTo(105, 0);
+  ctx.quadraticCurveTo(132, -32, 158, 0);
+  ctx.closePath();
+  ctx.fill();
+
+  // Articulated Excavator Boom & Bucket animated digging
+  const dig = Math.sin(time * 2.4 + x * 0.01);
+  const armAngle = -0.35 + dig * 0.16;
+  ctx.save();
+  ctx.translate(92, -46);
+  ctx.rotate(armAngle);
+  // Main boom
+  ctx.fillStyle = '#EA580C';
+  ctx.fillRect(0, -7, 44, 12);
+  ctx.strokeStyle = '#7C2D12';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(0, -7, 44, 12);
+
+  // Forearm & Bucket
+  ctx.translate(42, 0);
+  ctx.rotate(0.85 - dig * 0.25);
+  ctx.fillStyle = '#F59E0B';
+  ctx.fillRect(0, -5, 34, 9);
+  ctx.strokeRect(0, -5, 34, 9);
+
+  // Steel Bucket
+  ctx.fillStyle = '#334155';
+  ctx.beginPath();
+  ctx.moveTo(30, -6);
+  ctx.lineTo(48, -2);
+  ctx.lineTo(44, 15);
+  ctx.lineTo(26, 10);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Caterpillar Tracks
+  ctx.fillStyle = '#18181B';
+  ctx.beginPath();
+  ctx.roundRect(12, -26, 92, 26, 12);
+  ctx.fill();
+  ctx.fillStyle = '#52525B';
+  for (const wx of [26, 48, 70, 90]) {
+    ctx.beginPath();
+    ctx.arc(wx, -13, 7, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Excavator Body
+  ctx.fillStyle = '#F59E0B';
+  ctx.beginPath();
+  ctx.roundRect(10, -54, 90, 30, 5);
+  ctx.fill();
+  ctx.strokeStyle = '#92400E';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Cab (roof aligns cleanly with y - 85)
+  ctx.fillStyle = '#FBBF24';
+  ctx.fillRect(20, -85, 52, 34);
+  ctx.fillStyle = 'rgba(56, 189, 248, 0.6)';
+  ctx.fillRect(26, -79, 40, 23);
+  ctx.fillStyle = '#1E293B';
+  ctx.fillRect(16, -89, 60, 6);
+
+  // Flashing Amber Work Beacon
+  const beaconOn = Math.sin(time * 8) > 0;
+  ctx.fillStyle = beaconOn ? '#FDE047' : '#D97706';
+  ctx.beginPath();
+  ctx.arc(46, -94, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawPizzeriaTumini(ctx: CanvasRenderingContext2D, lm: LevelLandmark, time: number): void {
+  const { x, y, w } = lm;
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Stone oven chimney with warm smoke
+  ctx.fillStyle = '#78350F';
+  ctx.fillRect(26, -248, 26, 40);
+  for (let i = 0; i < 3; i++) {
+    const t = (time * 0.65 + i * 0.33) % 1;
+    ctx.fillStyle = `rgba(255, 255, 255, ${0.5 * (1 - t)})`;
+    ctx.beginPath();
+    ctx.arc(39 + Math.sin(time * 2 + i) * 4, -256 - t * 34, 6 + t * 7, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Modern-Abruzzo Stone & Cream Facade
+  ctx.fillStyle = '#EFE6D5';
+  ctx.fillRect(0, -210, w, 210);
+  ctx.fillStyle = '#B9A389';
+  ctx.fillRect(0, -70, w, 70);
+  ctx.strokeStyle = '#6B5340';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(0, -210, w, 210);
+
+  // Roof Trim (aligns with y = 330)
+  ctx.fillStyle = '#991B1B';
+  ctx.fillRect(-8, -216, w + 16, 14);
+
+  // Balcony Railing (aligns with y = 430)
+  ctx.fillStyle = '#44403C';
+  ctx.fillRect(8, -112, w - 16, 8);
+  ctx.strokeStyle = '#1C1917';
+  ctx.lineWidth = 2;
+  for (let rx = 20; rx < w - 16; rx += 22) {
+    ctx.beginPath();
+    ctx.moveTo(rx, -112);
+    ctx.lineTo(rx, -126);
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.moveTo(12, -126);
+  ctx.lineTo(w - 12, -126);
+  ctx.stroke();
+
+  // Illuminated Signboard: "PIZZERIA TUMINI"
+  ctx.fillStyle = '#18181B';
+  ctx.beginPath();
+  ctx.roundRect(30, -184, w - 60, 42, 8);
+  ctx.fill();
+  ctx.strokeStyle = '#EF4444';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  ctx.fillStyle = '#FDE047';
+  ctx.font = '800 19px "Bricolage Grotesque", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('PIZZERIA TUMINI', w / 2, -163);
+
+  // Glowing Takeaway Counter & Door
+  ctx.fillStyle = '#FEF08A';
+  ctx.fillRect(34, -84, 96, 46);
+  ctx.strokeStyle = '#57534E';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(34, -84, 96, 46);
+
+  // Glass Door
+  ctx.fillStyle = '#334155';
+  ctx.fillRect(154, -84, 54, 84);
+  ctx.fillStyle = '#FDBA74';
+  ctx.fillRect(162, -76, 38, 44);
+
+  // Outdoor Umbrella Table
+  ctx.fillStyle = '#1E293B';
+  ctx.fillRect(256, -72, 4, 72);
+  ctx.fillStyle = '#DC2626';
+  ctx.beginPath();
+  ctx.moveTo(228, -72);
+  ctx.lineTo(258, -94);
+  ctx.lineTo(288, -72);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#78350F';
+  ctx.fillRect(236, -24, 44, 5);
+
+  ctx.restore();
+}
+
+function drawSoccerField(ctx: CanvasRenderingContext2D, lm: LevelLandmark, time: number): void {
+  const { x, y, w } = lm;
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Striped Pitch Turf Overlay on top of ground edge
+  for (let sx = 0; sx < w; sx += 92) {
+    ctx.fillStyle = (sx / 92) % 2 === 0 ? '#16A34A' : '#15803D';
+    ctx.fillRect(sx, 0, Math.min(92, w - sx), 16);
+  }
+  // White chalk lines
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(16, 0, w - 32, 3);
+  ctx.fillRect(w / 2 - 2, 0, 4, 16);
+
+  // Tall Floodlight Towers (Left & Right)
+  for (const fx of [18, w - 26]) {
+    ctx.fillStyle = '#64748B';
+    ctx.fillRect(fx, -250, 8, 250);
+    ctx.fillStyle = '#1E293B';
+    ctx.fillRect(fx - 14, -264, 36, 18);
+    ctx.fillStyle = '#FEF08A';
+    for (let b = 0; b < 3; b++) {
+      ctx.beginPath();
+      ctx.arc(fx - 6 + b * 10, -255, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Central Tribuna / Bleachers (x = 350..740 inside field -> world 2740..3130)
+  const tribX = 350;
+  const tribW = 390;
+  ctx.fillStyle = '#475569';
+  ctx.fillRect(tribX, -95, tribW, 95);
+  ctx.fillStyle = '#334155';
+  ctx.fillRect(tribX, -62, tribW, 8);
+  ctx.fillRect(tribX, -30, tribW, 8);
+
+  // Upper Press / Roof canopy (aligns with y = 355 -> -185)
+  ctx.fillStyle = '#1E293B';
+  ctx.fillRect(tribX + 85, -185, 220, 12);
+  ctx.fillStyle = '#64748B';
+  ctx.fillRect(tribX + 95, -185, 8, 90);
+  ctx.fillRect(tribX + 287, -185, 8, 90);
+
+  // Scoreboard on top of bleachers
+  ctx.fillStyle = '#0F172A';
+  ctx.fillRect(tribX + 125, -228, 140, 32);
+  ctx.strokeStyle = '#FBBF24';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(tribX + 125, -228, 140, 32);
+  ctx.fillStyle = '#FDE047';
+  ctx.font = '700 12px "JetBrains Mono", monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('PAGLIETA 2 - 1', tribX + 195, -212);
+
+  // Cheering/Rowdy Background Spectators in the bleachers!
+  const fanColors = ['#DC2626', '#2563EB', '#F59E0B', '#FFFFFF'];
+  for (let s = 0; s < 14; s++) {
+    const sx = tribX + 20 + s * 26;
+    const bounce = Math.abs(Math.sin(time * 7 + s * 1.1)) * 5;
+    ctx.fillStyle = fanColors[s % fanColors.length];
+    ctx.fillRect(sx - 5, -78 - bounce, 10, 14);
+    ctx.fillStyle = '#FDBA74';
+    ctx.beginPath();
+    ctx.arc(sx, -83 - bounce, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Left & Right White Soccer Goalposts (crossbars at y - 105 -> 435)
+  const drawGoal = (gx: number, facingRight: boolean) => {
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 5;
+    ctx.strokeRect(gx, -105, 92, 105);
+
+    // Goal net grid
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.32)';
+    ctx.lineWidth = 1.5;
+    for (let nx = gx + 12; nx < gx + 92; nx += 14) {
+      ctx.beginPath();
+      ctx.moveTo(nx, -103);
+      ctx.lineTo(nx, 0);
+      ctx.stroke();
+    }
+    for (let ny = -90; ny < 0; ny += 15) {
+      ctx.beginPath();
+      ctx.moveTo(gx + 2, ny);
+      ctx.lineTo(gx + 90, ny);
+      ctx.stroke();
+    }
+
+    // Thick front post accent
+    ctx.fillStyle = '#E2E8F0';
+    const postX = facingRight ? gx + 88 : gx;
+    ctx.fillRect(postX, -107, 6, 107);
+  };
+
+  drawGoal(26, true);
+  drawGoal(w - 116, false);
+
+  ctx.restore();
+}
+
+function drawPurgeChaosLandmark(ctx: CanvasRenderingContext2D, lm: LevelLandmark, time: number): void {
+  const { x, y, w } = lm;
+  ctx.save();
+  ctx.translate(x, y);
+
+  // 1. Burning Oil Drum / Falò di Protesta on left
+  const bx = 36;
+  ctx.fillStyle = '#334155';
+  ctx.fillRect(bx, -42, 30, 42);
+  ctx.fillStyle = '#1E293B';
+  ctx.fillRect(bx, -30, 30, 4);
+  ctx.fillRect(bx, -14, 30, 4);
+
+  // Animated roaring flames + embers
+  const flicker = Math.sin(time * 15 + x) * 4;
+  ctx.fillStyle = 'rgba(249, 115, 22, 0.32)';
+  ctx.beginPath();
+  ctx.arc(bx + 15, -54, 30 + flicker * 0.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#EA580C';
+  ctx.beginPath();
+  ctx.moveTo(bx + 2, -42);
+  ctx.lineTo(bx + 10, -72 - flicker);
+  ctx.lineTo(bx + 17, -56);
+  ctx.lineTo(bx + 23, -76 + flicker);
+  ctx.lineTo(bx + 28, -42);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = '#FDE047';
+  ctx.beginPath();
+  ctx.moveTo(bx + 7, -42);
+  ctx.lineTo(bx + 15, -62 - flicker * 0.5);
+  ctx.lineTo(bx + 23, -42);
+  ctx.closePath();
+  ctx.fill();
+
+  // 2. Tilted / Smashed Streetlamp
+  ctx.save();
+  ctx.translate(155, 0);
+  ctx.rotate(0.18);
+  ctx.fillStyle = '#475569';
+  ctx.fillRect(-3, -118, 6, 118);
+  ctx.fillStyle = '#1E293B';
+  ctx.fillRect(-3, -118, 22, 5);
+  // Sparking broken bulb
+  if (Math.sin(time * 18 + x) > 0.25) {
+    ctx.fillStyle = '#FEF08A';
+    ctx.beginPath();
+    ctx.arc(16, -110, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // 3. Overturned / Wrecked Sagra Stall & Scattered Bottles
+  const sx = w * 0.55;
+  ctx.save();
+  ctx.translate(sx, 0);
+  ctx.rotate(-0.14);
+  ctx.fillStyle = '#78350F';
+  ctx.fillRect(0, -44, 96, 44);
+  ctx.fillStyle = '#991B1B';
+  ctx.fillRect(-6, -54, 108, 12);
+  // Graffiti / Banner: "NOTTE DEL GIUDIZIO"
+  ctx.fillStyle = '#18181B';
+  ctx.fillRect(8, -36, 80, 20);
+  ctx.fillStyle = '#EF4444';
+  ctx.font = '800 8px "Plus Jakarta Sans", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('TUTTO CONCESSO', 48, -26);
+  ctx.restore();
+
+  // Fallen bottles & knocked-over trash can on pavement
+  ctx.fillStyle = '#16A34A';
+  ctx.fillRect(sx + 125, -7, 13, 6);
+  ctx.fillStyle = '#F59E0B';
+  ctx.fillRect(sx + 148, -6, 12, 5);
+
+  ctx.save();
+  ctx.translate(w - 52, -12);
+  ctx.rotate(1.42);
+  ctx.fillStyle = '#64748B';
+  ctx.fillRect(-12, -16, 24, 32);
+  ctx.restore();
+
+  ctx.restore();
 }
 
 function drawLuminarie(
@@ -470,6 +1388,14 @@ function drawPlatform(ctx: CanvasRenderingContext2D, p: Platform, palette: Theme
     ctx.fillRect(p.x, p.y, p.w, 4);
     ctx.fillStyle = palette.groundBorder;
     ctx.fillRect(p.x, p.y + 16, p.w, 3);
+    return;
+  }
+
+  if (p.kind === 'ledge') {
+    ctx.fillStyle = 'rgba(255, 250, 235, 0.35)';
+    ctx.fillRect(p.x, p.y, p.w, 4);
+    ctx.fillStyle = 'rgba(28, 25, 23, 0.28)';
+    ctx.fillRect(p.x, p.y + 4, p.w, 3);
     return;
   }
 
@@ -905,49 +1831,23 @@ function drawMayor(ctx: CanvasRenderingContext2D, p: Player, time: number): void
   ctx.fill();
   ctx.restore();
 
-  // Head: Real photo cutout (green-screened) with matching clean-shaven silver-haired fallback
+  // Head: Crisp 8-bit pixel-art sprite modeled after Sindaco Graziani
   const headImg = getMayorHeadCanvas();
   if (headImg && p.hitFlashTimer <= 0) {
     const headW = 28;
     const headH = Math.round((headImg.height / headImg.width) * headW);
-    const tilt = Math.max(-0.12, Math.min(0.12, (p.vx / 400) * 0.1 * p.facing));
+    const tilt = Math.max(-0.08, Math.min(0.08, (p.vx / 400) * 0.07 * p.facing));
 
     ctx.save();
     ctx.translate(0, -42);
     ctx.rotate(tilt);
-
-    // Subtle crisp backdrop halo so the silver hair reads clearly against bright skies
-    ctx.shadowColor = 'rgba(15, 23, 42, 0.55)';
-    ctx.shadowBlur = 4;
-    ctx.drawImage(headImg, -headW / 2, -headH / 2, headW, headH);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(headImg, Math.round(-headW / 2), Math.round(-headH / 2), headW, headH);
     ctx.restore();
   } else {
-    // Fallback matching Sindaco Graziani: clean-shaven, thick dark brows, full silver-grey wavy hair
-    ctx.fillStyle = p.hitFlashTimer > 0 ? '#FFFFFF' : '#F2B89B';
-    ctx.beginPath();
-    ctx.ellipse(0, -39, 10.5, 11.5, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Full voluminous silver-grey hair
-    ctx.fillStyle = '#CBD5E1';
-    ctx.beginPath();
-    ctx.arc(0, -44, 11.5, Math.PI * 0.92, Math.PI * 2.08);
-    ctx.fill();
-    ctx.fillStyle = '#94A3B8';
-    ctx.fillRect(-11, -45, 4, 7);
-    ctx.fillRect(7, -45, 3.5, 5);
-
-    // Thick dark eyebrows + eyes + friendly clean-shaven smile
-    ctx.fillStyle = '#1E293B';
-    ctx.fillRect(-5, -43, 4.5, 2);
-    ctx.fillRect(2, -43, 5, 2);
-    ctx.fillStyle = '#0F172A';
-    ctx.fillRect(3.5, -40, 2.2, 2.5);
-    ctx.strokeStyle = '#9A3412';
-    ctx.lineWidth = 1.6;
-    ctx.beginPath();
-    ctx.arc(2.5, -35, 3.5, 0.15, Math.PI * 0.75);
-    ctx.stroke();
+    // Solid white hit-flash head silhouette
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(-10, -52, 20, 22);
   }
 
   ctx.restore();
@@ -982,6 +1882,10 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number): void 
   if (e.kind === 'charger') shirt = '#9333EA';
   if (e.kind === 'flyer_thrower') shirt = '#0284C7';
   if (e.kind === 'councilor_boss') shirt = '#18181B';
+  if (e.kind === 'tifoso') shirt = '#1D4ED8';
+  if (e.kind === 'drunk_citizen') shirt = '#15803D';
+  if (e.kind === 'armed_purger') shirt = '#27272A';
+  if (e.kind === 'vandal') shirt = '#7F1D1D';
   if (e.hitFlash > 0 || (isWindup && Math.floor(time * 20) % 2 === 0)) {
     shirt = '#FCA5A5';
   }
@@ -991,53 +1895,100 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number): void 
   ctx.roundRect(-12, -31, 24, 21, 4);
   ctx.fill();
 
-  // Angry Citizen Head (slightly flushed red!)
-  ctx.fillStyle = e.hitFlash > 0 ? '#FFFFFF' : '#F89B7E';
-  ctx.beginPath();
-  ctx.arc(0, -39, 10, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Hair / Hat
-  if (e.kind === 'charger') {
-    // Kerchief / curls
-    ctx.fillStyle = '#E2E8F0';
-    ctx.beginPath();
-    ctx.arc(-2, -43, 9.5, Math.PI * 0.85, Math.PI * 2);
-    ctx.fill();
-  } else if (e.kind === 'councilor_boss') {
-    // Hard hat / top hat
+  // Soccer jersey stripes & scarf for Tifoso Rissoso
+  if (e.kind === 'tifoso') {
+    ctx.fillStyle = '#DC2626';
+    ctx.fillRect(-6, -31, 5, 21);
+    ctx.fillRect(4, -31, 5, 21);
     ctx.fillStyle = '#FACC15';
-    ctx.beginPath();
-    ctx.arc(0, -44, 10.5, Math.PI, Math.PI * 2);
-    ctx.fill();
-    ctx.fillRect(-12, -45, 24, 3);
-  } else {
-    ctx.fillStyle = '#292524';
-    ctx.fillRect(-9, -48, 18, 6);
+    ctx.fillRect(-13, -32, 26, 4);
   }
 
-  // Angry furrowed eyebrow + open shouting mouth
-  ctx.strokeStyle = '#1C1917';
-  ctx.lineWidth = 2.2;
-  ctx.beginPath();
-  ctx.moveTo(0, -43);
-  ctx.lineTo(7, -40);
-  ctx.stroke();
+  // Head / Mask
+  if (e.kind === 'armed_purger') {
+    // Eerie smiling white Purge-style carnival mask!
+    ctx.fillStyle = e.hitFlash > 0 ? '#FFFFFF' : '#F8FAFC';
+    ctx.beginPath();
+    ctx.arc(0, -39, 10.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#991B1B';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
 
-  ctx.fillStyle = '#1C1917';
-  ctx.fillRect(3, -39, 2.5, 2.5);
-  ctx.fillStyle = '#7F1D1D';
-  ctx.beginPath();
-  ctx.ellipse(4, -34, 3.5, 2.5, 0, 0, Math.PI * 2);
-  ctx.fill();
+    // Glowing dark eye slits & painted red grin
+    ctx.fillStyle = '#09090B';
+    ctx.fillRect(1, -42, 6, 3);
+    ctx.strokeStyle = '#DC2626';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(3, -36, 4.5, 0.1, Math.PI * 0.85);
+    ctx.stroke();
+  } else {
+    // Greenish face when drunk & about to vomit, otherwise flushed red
+    const faceColor =
+      e.hitFlash > 0
+        ? '#FFFFFF'
+        : e.kind === 'drunk_citizen'
+          ? isWindup
+            ? '#A3E635'
+            : '#F59E8B'
+          : '#F89B7E';
+    ctx.fillStyle = faceColor;
+    ctx.beginPath();
+    ctx.arc(0, -39, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Hair / Hat
+    if (e.kind === 'charger') {
+      ctx.fillStyle = '#E2E8F0';
+      ctx.beginPath();
+      ctx.arc(-2, -43, 9.5, Math.PI * 0.85, Math.PI * 2);
+      ctx.fill();
+    } else if (e.kind === 'councilor_boss') {
+      ctx.fillStyle = '#FACC15';
+      ctx.beginPath();
+      ctx.arc(0, -44, 10.5, Math.PI, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(-12, -45, 24, 3);
+    } else if (e.kind === 'tifoso') {
+      ctx.fillStyle = '#DC2626';
+      ctx.fillRect(-10, -46, 20, 4);
+      ctx.fillStyle = '#292524';
+      ctx.fillRect(-9, -49, 18, 4);
+    } else if (e.kind === 'vandal') {
+      // Dark hood + bandana
+      ctx.fillStyle = '#18181B';
+      ctx.beginPath();
+      ctx.arc(0, -42, 10.5, Math.PI * 0.8, Math.PI * 2.1);
+      ctx.fill();
+      ctx.fillStyle = '#DC2626';
+      ctx.fillRect(-7, -37, 16, 6);
+    } else {
+      ctx.fillStyle = '#292524';
+      ctx.fillRect(-9, -48, 18, 6);
+    }
+
+    // Angry furrowed eyebrow + open shouting mouth (or dizzy eyes for drunk)
+    ctx.strokeStyle = '#1C1917';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(0, -43);
+    ctx.lineTo(7, -40);
+    ctx.stroke();
+
+    ctx.fillStyle = '#1C1917';
+    ctx.fillRect(3, -39, 2.5, 2.5);
+    ctx.fillStyle = e.kind === 'drunk_citizen' && isWindup ? '#65A30D' : '#7F1D1D';
+    ctx.beginPath();
+    ctx.ellipse(4, -34, 3.8, 2.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   // Prop held in hand!
   if (e.kind === 'charger') {
-    // Rolling pin (matterello)
     ctx.fillStyle = '#D97706';
     ctx.fillRect(6, -26, 15, 5);
   } else if (e.kind === 'flyer_thrower') {
-    // Megaphone
     ctx.fillStyle = '#FDE047';
     ctx.beginPath();
     ctx.moveTo(6, -34);
@@ -1045,8 +1996,39 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number): void 
     ctx.lineTo(18, -29);
     ctx.closePath();
     ctx.fill();
+  } else if (e.kind === 'tifoso') {
+    ctx.fillStyle = '#E2E8F0';
+    ctx.fillRect(9, -52, 3, 34);
+    ctx.fillStyle = '#DC2626';
+    ctx.fillRect(12, -52, 14, 7);
+    ctx.fillStyle = '#1D4ED8';
+    ctx.fillRect(12, -45, 14, 6);
+  } else if (e.kind === 'drunk_citizen') {
+    // Tipped green wine/liquor bottle!
+    ctx.save();
+    ctx.translate(10, -25);
+    ctx.rotate(0.5 + Math.sin(time * 5) * 0.25);
+    ctx.fillStyle = '#16A34A';
+    ctx.fillRect(-3, -12, 6, 14);
+    ctx.fillRect(-1.5, -17, 3, 5);
+    ctx.restore();
+  } else if (e.kind === 'armed_purger' || e.kind === 'councilor_boss') {
+    // Baseball bat / iron crowbar!
+    ctx.save();
+    ctx.translate(8, -24);
+    ctx.rotate(isWindup ? -0.9 : -0.35);
+    ctx.fillStyle = e.kind === 'councilor_boss' ? '#EF4444' : '#D97706';
+    ctx.fillRect(-2, -22, 5, 24);
+    ctx.fillStyle = '#94A3B8';
+    ctx.fillRect(-3, -24, 7, 4);
+    ctx.restore();
+  } else if (e.kind === 'vandal') {
+    // Bottle / Sledgehammer
+    ctx.fillStyle = '#F59E0B';
+    ctx.fillRect(8, -34, 6, 14);
+    ctx.fillStyle = '#FEF08A';
+    ctx.fillRect(10, -39, 2, 5);
   } else {
-    // Protest sign stick
     ctx.fillStyle = '#78350F';
     ctx.fillRect(9, -46, 3, 28);
     ctx.fillStyle = '#FEF3C7';
@@ -1073,10 +2055,10 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number): void 
     }
 
     if (isWindup) {
-      ctx.fillStyle = '#EF4444';
+      ctx.fillStyle = e.kind === 'drunk_citizen' ? '#84CC16' : '#EF4444';
       ctx.font = '800 22px "Bricolage Grotesque", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('!', cx, e.y - 16);
+      ctx.fillText(e.kind === 'drunk_citizen' ? '🤢' : '!', cx, e.y - 16);
     } else if (e.shoutTimer > 0 && e.shoutText) {
       ctx.save();
       ctx.font = '700 11px "Plus Jakarta Sans", sans-serif';
@@ -1097,9 +2079,25 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number): void 
 function drawProjectile(ctx: CanvasRenderingContext2D, pr: Projectile): void {
   ctx.save();
   ctx.translate(pr.x, pr.y);
+
+  if (pr.kind === 'vomit_puddle') {
+    // Bubbling green puddle on street
+    const fade = Math.min(1, (pr.ttl ?? 1) * 1.4);
+    ctx.globalAlpha = fade;
+    ctx.fillStyle = '#65A30D';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 20, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#A3E635';
+    ctx.beginPath();
+    ctx.ellipse(-4, -1, 10, 2.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+
   ctx.rotate(pr.rotation);
   if (pr.kind === 'flyer') {
-    // Protest flyer spinning in air
     ctx.fillStyle = '#FEF3C7';
     ctx.fillRect(-8, -6, 16, 12);
     ctx.strokeStyle = '#DC2626';
@@ -1108,6 +2106,24 @@ function drawProjectile(ctx: CanvasRenderingContext2D, pr: Projectile): void {
     ctx.fillStyle = '#DC2626';
     ctx.fillRect(-5, -2, 10, 2);
     ctx.fillRect(-5, 2, 7, 2);
+  } else if (pr.kind === 'bottle') {
+    // Spinning glass bottle with spark wick
+    ctx.fillStyle = '#15803D';
+    ctx.fillRect(-4, -8, 8, 14);
+    ctx.fillRect(-2, -13, 4, 5);
+    ctx.fillStyle = '#F97316';
+    ctx.beginPath();
+    ctx.arc(0, -14, 3, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (pr.kind === 'vomit_arc') {
+    ctx.fillStyle = '#84CC16';
+    ctx.beginPath();
+    ctx.arc(0, 0, pr.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#BEF264';
+    ctx.beginPath();
+    ctx.arc(-2, -2, 3, 0, Math.PI * 2);
+    ctx.fill();
   } else {
     ctx.fillStyle = '#EF4444';
     ctx.beginPath();

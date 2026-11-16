@@ -6,18 +6,46 @@ export type GameScreenState =
   | 'GAME_OVER'
   | 'VICTORY';
 
-export type LevelTheme = 'morning' | 'borgo' | 'maiella' | 'sagra';
+export type LevelTheme = 'morning' | 'piane' | 'collemici' | 'maiella' | 'sagra';
+
+export type LandmarkKind =
+  | 'pizzeria_filoteo'
+  | 'istituto_agrario'
+  | 'tractor'
+  | 'hay_bale'
+  | 'ruspa'
+  | 'park_trees'
+  | 'pizzeria_tumini'
+  | 'soccer_field'
+  | 'purge_chaos';
+
+export interface LevelLandmark {
+  kind: LandmarkKind;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  variant?: 'red' | 'green';
+}
 
 export type CocktailKind = 'spritz' | 'negroni' | 'mojito' | 'gin_tonic' | 'centerba';
 
-export type EnemyKind = 'protester' | 'charger' | 'flyer_thrower' | 'councilor_boss';
+export type EnemyKind =
+  | 'protester'
+  | 'charger'
+  | 'flyer_thrower'
+  | 'councilor_boss'
+  | 'tifoso'
+  | 'drunk_citizen'
+  | 'armed_purger'
+  | 'vandal';
 
 export interface Platform {
   x: number;
   y: number;
   w: number;
   h: number;
-  kind: 'ground' | 'brick' | 'balcony' | 'stone';
+  kind: 'ground' | 'brick' | 'balcony' | 'stone' | 'ledge';
   oneWay?: boolean;
 }
 
@@ -109,9 +137,10 @@ export interface Projectile {
   vx: number;
   vy: number;
   radius: number;
-  kind: 'tomato' | 'flyer';
+  kind: 'tomato' | 'flyer' | 'bottle' | 'vomit_arc' | 'vomit_puddle';
   active: boolean;
   rotation: number;
+  ttl?: number;
 }
 
 export interface Particle {
@@ -157,6 +186,7 @@ export interface LevelConfig {
   awnings: Omit<BounceAwning, 'bouncePhase'>[];
   movingPlatforms: Omit<MovingPlatform, 'x' | 'y' | 'progress' | 'direction' | 'prevX' | 'prevY'>[];
   cocktails: Omit<Cocktail, 'collected' | 'bobOffset'>[];
+  landmarks?: LevelLandmark[];
   enemies: Omit<
     Enemy,
     'vy' | 'aiState' | 'stateTimer' | 'hitFlash' | 'squashTimer' | 'shoutTimer' | 'walkPhase'

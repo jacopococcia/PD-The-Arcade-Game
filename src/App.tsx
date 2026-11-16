@@ -13,11 +13,10 @@ import {
 } from 'lucide-react';
 import { GameEngine } from './game/engine';
 import { LEVELS } from './game/levels';
-import { subscribeMayorPortrait } from './game/mayorSprite';
+import { getMayorPortraitDataUrl } from './game/mayorSprite';
 import { HudSnapshot } from './game/types';
 
 const BACKDROP_SRC = '/src/assets/images/paglieta_title_backdrop_1794818977156.jpg';
-const PORTRAIT_SRC = '/assets/aistudio/graziani-sindaco_dafad287.jpg';
 
 const INITIAL_HUD: HudSnapshot = {
   screen: 'TITLE_MENU',
@@ -163,11 +162,10 @@ export default function App() {
   const [selectedStartLevel, setSelectedStartLevel] = useState<number>(0);
   const [backdropError, setBackdropError] = useState(false);
   const [portraitError, setPortraitError] = useState(false);
-  const [cleanPortraitUrl, setCleanPortraitUrl] = useState<string | null>(null);
+  const [pixelPortraitUrl, setPixelPortraitUrl] = useState<string>('');
 
   useEffect(() => {
-    const unsub = subscribeMayorPortrait((url) => setCleanPortraitUrl(url));
-    return unsub;
+    setPixelPortraitUrl(getMayorPortraitDataUrl());
   }, []);
 
   useEffect(() => {
@@ -250,13 +248,14 @@ export default function App() {
               <TitleLockupSvg />
 
               <div className="flex items-center gap-4">
-                {!portraitError ? (
+                {!portraitError && pixelPortraitUrl ? (
                   <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-gradient-to-b from-sky-300 via-amber-100 to-amber-200 ring-2 ring-amber-400/80 shadow-lg">
                     <img
-                      src={cleanPortraitUrl ?? PORTRAIT_SRC}
-                      alt="Il Sindaco di Paglieta"
+                      src={pixelPortraitUrl}
+                      alt="Il Sindaco di Paglieta in pixel art 8-bit"
                       referrerPolicy="no-referrer"
                       onError={() => setPortraitError(true)}
+                      style={{ imageRendering: 'pixelated' }}
                       className="h-full w-full object-cover object-top"
                     />
                   </div>
@@ -649,13 +648,14 @@ export default function App() {
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-stone-950/85 p-4">
           <div className="w-full max-w-md rounded-2xl bg-stone-900 p-7 text-center ring-1 ring-amber-400/40 shadow-2xl">
             <div className="mx-auto mb-3 flex w-fit items-center gap-3">
-              {!portraitError ? (
+              {!portraitError && pixelPortraitUrl ? (
                 <div className="h-22 w-22 overflow-hidden rounded-2xl bg-gradient-to-b from-sky-300 via-amber-100 to-amber-200 ring-2 ring-amber-400 shadow-lg">
                   <img
-                    src={cleanPortraitUrl ?? PORTRAIT_SRC}
-                    alt="Il Sindaco trionfante a Paglieta"
+                    src={pixelPortraitUrl}
+                    alt="Il Sindaco trionfante a Paglieta in pixel art 8-bit"
                     referrerPolicy="no-referrer"
                     onError={() => setPortraitError(true)}
+                    style={{ imageRendering: 'pixelated' }}
                     className="h-full w-full object-cover object-top"
                   />
                 </div>

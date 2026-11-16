@@ -735,10 +735,15 @@ export class GameEngine {
       const distY = Math.abs(pCy - eCy);
 
       // AI State Machine with clear Windup Telegraphs
-      if (e.kind === 'charger' || e.kind === 'councilor_boss') {
+      if (
+        e.kind === 'charger' ||
+        e.kind === 'councilor_boss' ||
+        e.kind === 'tifoso' ||
+        e.kind === 'armed_purger'
+      ) {
         if (e.aiState === 'patrol') {
           e.x += e.vx * dt;
-          e.walkPhase += dt * 10;
+          e.walkPhase += dt * (e.kind === 'tifoso' || e.kind === 'armed_purger' ? 13 : 10);
           if (e.x <= e.minX) {
             e.x = e.minX;
             e.vx = Math.abs(e.baseSpeed);
@@ -750,9 +755,9 @@ export class GameEngine {
           }
 
           // Detect Mayor on horizontal sightline -> Windup!
-          if (Math.abs(distX) < 250 && distY < 56) {
+          if (Math.abs(distX) < 270 && distY < 62) {
             e.aiState = 'windup';
-            e.stateTimer = 0.48;
+            e.stateTimer = e.kind === 'tifoso' || e.kind === 'armed_purger' ? 0.4 : 0.48;
             e.facing = distX >= 0 ? 1 : -1;
             e.vx = 0;
             audioEngine.playWindup();
@@ -762,7 +767,14 @@ export class GameEngine {
           if (e.stateTimer <= 0) {
             e.aiState = 'charge';
             e.stateTimer = 0.95;
-            const chargeSpd = e.kind === 'councilor_boss' ? 275 : 235;
+            const chargeSpd =
+              e.kind === 'councilor_boss'
+                ? 285
+                : e.kind === 'armed_purger'
+                  ? 265
+                  : e.kind === 'tifoso'
+                    ? 255
+                    : 235;
             e.vx = e.facing * chargeSpd;
           }
         } else if (e.aiState === 'charge') {
@@ -782,41 +794,77 @@ export class GameEngine {
             e.vx = e.facing * e.baseSpeed;
           }
         }
-      } else if (e.kind === 'flyer_thrower') {
+      } else if (e.kind === 'flyer_thrower' || e.kind === 'vandal' || e.kind === 'drunk_citizen') {
         if (e.aiState === 'patrol') {
-          e.x += e.vx * dt;
-          e.walkPhase += dt * 7;
+          const wobble = e.kind === 'drunk_citizen' ? 0.6 + 0.5 * Math.sin(this.elapsedTime * 5 + e.x * 0.02) : 1;
+          e.x += e.vx * wobble * dt;
+          e.walkPhase += dt * (e.kind === 'drunk_citizen' ? 6 : 7);
           if (e.x <= e.minX) {
             e.x = e.minX;
             e.vx = Math.abs(e.baseSpeed);
+            e.facing = 1;
           } else if (e.x >= e.maxX) {
             e.x = e.maxX;
             e.vx = -Math.abs(e.baseSpeed);
+            e.facing = -1;
           }
-          e.facing = distX >= 0 ? 1 : -1;
+          if (e.kind !== 'drunk_citizen') {
+            e.facing = distX >= 0 ? 1 : -1;
+          }
           e.stateTimer -= dt;
-          if (e.stateTimer <= 0 && Math.abs(distX) < 420) {
+          if (e.stateTimer <= 0 && Math.abs(distX) < 430) {
             e.aiState = 'windup';
-            e.stateTimer = 0.45;
+            e.stateTimer = e.kind === 'drunk_citizen' ? 0.55 : 0.45;
             audioEngine.playWindup();
           }
         } else if (e.aiState === 'windup') {
-          e.facing = distX >= 0 ? 1 : -1;
+          if (e.kind !== 'drunk_citizen') {
+            e.facing = distX >= 0 ? 1 : -1;
+          }
           e.stateTimer -= dt;
           if (e.stateTimer <= 0) {
-            // Lob arcing protest flyer / tomato
-            this.projectiles.push({
-              x: eCx + e.facing * 14,
-              y: e.y + 16,
-              vx: e.facing * 205,
-              vy: -310,
-              radius: 8,
-              kind: Math.random() > 0.4 ? 'flyer' : 'tomato',
-              active: true,
-              rotation: 0,
-            });
+            if (e.kind === 'drunk_citizen') {
+              // Vomits a cartoonish green arc that puddles on the street
+              this.projectiles.push({
+                x: eCx + e.facing * 12,
+                y: e.y + 14,
+                vx: e.facing * 115,
+                vy: -140,
+                radius: 7,
+                kind: 'vomit_arc',
+                active: true,
+                rotation: 0,
+              });
+              this.spawnBurst(eCx + e.facing * 14, e.y + 14, '#84CC16', 6, 80);
+              e.stateTimer = 2.6;
+            } else if (e.kind === 'vandal') {
+              // Lobs a spinning glass bottle / firecracker
+              this.projectiles.push({
+                x: eCx + e.facing * 14,
+                y: e.y + 16,
+                vx: e.facing * 225,
+                vy: -330,
+                radius: 8,
+                kind: 'bottle',
+                active: true,
+                rotation: 0,
+              });
+              e.stateTimer = 2.0;
+            } else {
+              // Standard flyer thrower
+              this.projectiles.push({
+                x: eCx + e.facing * 14,
+                y: e.y + 16,
+                vx: e.facing * 205,
+                vy: -310,
+                radius: 8,
+                kind: 'flyer',
+                active: true,
+                rotation: 0,
+              });
+              e.stateTimer = 2.1;
+            }
             e.aiState = 'patrol';
-            e.stateTimer = 2.1;
           }
         }
       } else {
@@ -880,10 +928,60 @@ export class GameEngine {
     const p = this.player;
     for (const pr of this.projectiles) {
       if (!pr.active) continue;
+
+      if (pr.kind === 'vomit_puddle') {
+        pr.ttl = (pr.ttl ?? 3.0) - dt;
+        if (pr.ttl <= 0) {
+          pr.active = false;
+          continue;
+        }
+        if (
+          p.invulnTimer <= 0 &&
+          this.aabb(p.x + 4, p.y + p.h - 12, p.w - 8, 12, pr.x - 18, pr.y - 6, 36, 10)
+        ) {
+          pr.active = false;
+          this.spawnBurst(pr.x, pr.y, '#84CC16', 8, 110);
+          this.damagePlayer(pr.x);
+        }
+        continue;
+      }
+
       pr.vy += 680 * dt;
       pr.x += pr.vx * dt;
       pr.y += pr.vy * dt;
       pr.rotation += dt * 9;
+
+      // Ground impact for vomit_arc (creates puddle) and bottle (shatters into sparks)
+      if (pr.kind === 'vomit_arc' || pr.kind === 'bottle') {
+        let hitGroundY: number | null = null;
+        for (const plat of this.level.platforms) {
+          if (
+            pr.x >= plat.x + 6 &&
+            pr.x <= plat.x + plat.w - 6 &&
+            pr.y + pr.radius >= plat.y &&
+            pr.y - pr.vy * dt <= plat.y + 14 &&
+            pr.vy > 0
+          ) {
+            hitGroundY = plat.y;
+            break;
+          }
+        }
+        if (hitGroundY !== null) {
+          if (pr.kind === 'vomit_arc') {
+            pr.kind = 'vomit_puddle';
+            pr.y = hitGroundY - 2;
+            pr.vx = 0;
+            pr.vy = 0;
+            pr.ttl = 3.2;
+            continue;
+          } else {
+            pr.active = false;
+            this.spawnBurst(pr.x, hitGroundY - 4, '#F59E0B', 10, 140);
+            this.spawnBurst(pr.x, hitGroundY - 4, '#FEF08A', 5, 110);
+            continue;
+          }
+        }
+      }
 
       if (pr.y > this.level.height + 40) {
         pr.active = false;
@@ -895,7 +993,7 @@ export class GameEngine {
         this.aabb(p.x + 3, p.y + 3, p.w - 6, p.h - 6, pr.x - pr.radius, pr.y - pr.radius, pr.radius * 2, pr.radius * 2)
       ) {
         pr.active = false;
-        this.spawnBurst(pr.x, pr.y, '#EF4444', 8, 120);
+        this.spawnBurst(pr.x, pr.y, pr.kind === 'vomit_arc' ? '#84CC16' : '#EF4444', 8, 120);
         this.damagePlayer(pr.x);
       }
     }
