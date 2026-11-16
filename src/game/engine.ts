@@ -189,6 +189,7 @@ export class GameEngine {
   }
 
   public destroy(): void {
+    audioEngine.stopMusic();
     if (this.rafId !== null) {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
@@ -202,6 +203,7 @@ export class GameEngine {
     this.totalCocktailsAllLevels = 0;
     this.loadLevel(startLevel, false);
     this.screen = 'PLAYING';
+    audioEngine.playMusic(this.levelIndex);
     this.emitHud(true);
   }
 
@@ -209,6 +211,7 @@ export class GameEngine {
     this.lives = this.maxLives;
     this.loadLevel(this.levelIndex, this.player?.hasShield ?? false);
     this.screen = 'PLAYING';
+    audioEngine.playMusic(this.levelIndex);
     this.emitHud(true);
   }
 
@@ -217,8 +220,10 @@ export class GameEngine {
       const keepShield = this.player.hasShield;
       this.loadLevel(this.levelIndex + 1, keepShield);
       this.screen = 'PLAYING';
+      audioEngine.playMusic(this.levelIndex);
       this.emitHud(true);
     } else {
+      audioEngine.stopMusic();
       this.screen = 'VICTORY';
       this.emitHud(true);
     }
@@ -227,15 +232,18 @@ export class GameEngine {
   public togglePause(): void {
     if (this.screen === 'PLAYING') {
       this.screen = 'PAUSED';
+      audioEngine.stopMusic();
       this.clearAllInputs();
       this.emitHud(true);
     } else if (this.screen === 'PAUSED') {
       this.screen = 'PLAYING';
+      audioEngine.playMusic(this.levelIndex);
       this.emitHud(true);
     }
   }
 
   public returnToTitle(): void {
+    audioEngine.stopMusic();
     this.screen = 'TITLE_MENU';
     this.clearAllInputs();
     this.loadLevel(0, false);
@@ -327,6 +335,8 @@ export class GameEngine {
       squashTimer: 0,
       shoutTimer: 0.8 + (idx % 3) * 0.7,
       walkPhase: idx * 1.2,
+      throwTimer: 1.2 + (idx % 4) * 0.55,
+      pendingAction: undefined,
     }));
 
     for (const pt of this.particles) pt.active = false;
@@ -732,9 +742,11 @@ export class GameEngine {
       const eCx = e.x + e.w / 2;
       const eCy = e.y + e.h / 2;
       const distX = pCx - eCx;
-      const distY = Math.abs(pCy - eCy);
+      const absDistX = Math.abs(distX);
+      const rawDistY = pCy - eCy;
+      const distY = Math.abs(rawDistY);
 
-      // AI State Machine with clear Windup Telegraphs
+      // AI State Machine with clear Windup Telegraphs & Object Throwing
       if (
         e.kind === 'charger' ||
         e.kind === 'councilor_boss' ||
@@ -754,28 +766,57 @@ export class GameEngine {
             e.facing = -1;
           }
 
-          // Detect Mayor on horizontal sightline -> Windup!
-          if (Math.abs(distX) < 270 && distY < 62) {
+          e.throwTimer -= dt;
+          // Detect Mayor on horizontal sightline -> Windup to Charge!
+          if (absDistX < 250 && distY < 60) {
             e.aiState = 'windup';
-            e.stateTimer = e.kind === 'tifoso' || e.kind === 'armed_purger' ? 0.4 : 0.48;
+            e.pendingAction = 'charge';
+            e.stateTimer = e.kind === 'tifoso' || e.kind === 'armed_purger' ? 0.38 : 0.46;
+            e.facing = distX >= 0 ? 1 : -1;
+            e.vx = 0;
+            audioEngine.playWindup();
+          } else if (e.throwTimer <= 0 && absDistX < 430 && distY < 220) {
+            // Throw thematic object toward the Mayor
+            e.aiState = 'windup';
+            e.pendingAction = 'throw';
+            e.stateTimer = 0.42;
             e.facing = distX >= 0 ? 1 : -1;
             e.vx = 0;
             audioEngine.playWindup();
           }
         } else if (e.aiState === 'windup') {
+          e.facing = distX >= 0 ? 1 : -1;
           e.stateTimer -= dt;
           if (e.stateTimer <= 0) {
-            e.aiState = 'charge';
-            e.stateTimer = 0.95;
-            const chargeSpd =
-              e.kind === 'councilor_boss'
-                ? 285
-                : e.kind === 'armed_purger'
-                  ? 265
-                  : e.kind === 'tifoso'
-                    ? 255
-                    : 235;
-            e.vx = e.facing * chargeSpd;
+            if (e.pendingAction === 'throw') {
+              const objKind: Projectile['kind'] =
+                e.kind === 'tifoso'
+                  ? 'soccer_ball'
+                  : e.kind === 'charger'
+                    ? 'wrench'
+                    : e.kind === 'councilor_boss'
+                      ? Math.floor(this.elapsedTime * 2) % 2 === 0
+                        ? 'bottle'
+                        : 'brick'
+                      : 'brick';
+              this.spawnEnemyProjectile(e, objKind, distX, rawDistY);
+              e.throwTimer = e.kind === 'councilor_boss' ? 1.85 : 2.55;
+              e.pendingAction = undefined;
+              e.aiState = 'cooldown';
+              e.stateTimer = 0.45;
+            } else {
+              e.aiState = 'charge';
+              e.stateTimer = 0.95;
+              const chargeSpd =
+                e.kind === 'councilor_boss'
+                  ? 285
+                  : e.kind === 'armed_purger'
+                    ? 265
+                    : e.kind === 'tifoso'
+                      ? 255
+                      : 235;
+              e.vx = e.facing * chargeSpd;
+            }
           }
         } else if (e.aiState === 'charge') {
           e.x += e.vx * dt;
@@ -784,7 +825,7 @@ export class GameEngine {
           if (e.x <= e.minX || e.x >= e.maxX || e.stateTimer <= 0) {
             e.x = Math.max(e.minX, Math.min(e.x, e.maxX));
             e.aiState = 'cooldown';
-            e.stateTimer = 0.65;
+            e.stateTimer = 0.6;
             e.vx = 0;
           }
         } else if (e.aiState === 'cooldown') {
@@ -796,7 +837,8 @@ export class GameEngine {
         }
       } else if (e.kind === 'flyer_thrower' || e.kind === 'vandal' || e.kind === 'drunk_citizen') {
         if (e.aiState === 'patrol') {
-          const wobble = e.kind === 'drunk_citizen' ? 0.6 + 0.5 * Math.sin(this.elapsedTime * 5 + e.x * 0.02) : 1;
+          const wobble =
+            e.kind === 'drunk_citizen' ? 0.6 + 0.5 * Math.sin(this.elapsedTime * 5 + e.x * 0.02) : 1;
           e.x += e.vx * wobble * dt;
           e.walkPhase += dt * (e.kind === 'drunk_citizen' ? 6 : 7);
           if (e.x <= e.minX) {
@@ -812,9 +854,10 @@ export class GameEngine {
             e.facing = distX >= 0 ? 1 : -1;
           }
           e.stateTimer -= dt;
-          if (e.stateTimer <= 0 && Math.abs(distX) < 430) {
+          if (e.stateTimer <= 0 && absDistX < 440 && distY < 230) {
             e.aiState = 'windup';
-            e.stateTimer = e.kind === 'drunk_citizen' ? 0.55 : 0.45;
+            e.pendingAction = 'throw';
+            e.stateTimer = e.kind === 'drunk_citizen' ? 0.52 : 0.44;
             audioEngine.playWindup();
           }
         } else if (e.aiState === 'windup') {
@@ -824,61 +867,70 @@ export class GameEngine {
           e.stateTimer -= dt;
           if (e.stateTimer <= 0) {
             if (e.kind === 'drunk_citizen') {
-              // Vomits a cartoonish green arc that puddles on the street
-              this.projectiles.push({
-                x: eCx + e.facing * 12,
-                y: e.y + 14,
-                vx: e.facing * 115,
-                vy: -140,
-                radius: 7,
-                kind: 'vomit_arc',
-                active: true,
-                rotation: 0,
-              });
-              this.spawnBurst(eCx + e.facing * 14, e.y + 14, '#84CC16', 6, 80);
-              e.stateTimer = 2.6;
+              if (absDistX > 220) {
+                // Far away: tosses an empty wine bottle!
+                this.spawnEnemyProjectile(e, 'bottle', distX, rawDistY);
+              } else {
+                // Close: vomits green arc that puddles on the street
+                this.projectiles.push({
+                  x: eCx + e.facing * 12,
+                  y: e.y + 14,
+                  vx: e.facing * 125,
+                  vy: -145,
+                  radius: 7,
+                  kind: 'vomit_arc',
+                  active: true,
+                  rotation: 0,
+                });
+                this.spawnBurst(eCx + e.facing * 14, e.y + 14, '#84CC16', 6, 80);
+              }
+              e.stateTimer = 2.4;
             } else if (e.kind === 'vandal') {
-              // Lobs a spinning glass bottle / firecracker
-              this.projectiles.push({
-                x: eCx + e.facing * 14,
-                y: e.y + 16,
-                vx: e.facing * 225,
-                vy: -330,
-                radius: 8,
-                kind: 'bottle',
-                active: true,
-                rotation: 0,
-              });
-              e.stateTimer = 2.0;
+              this.spawnEnemyProjectile(e, 'bottle', distX, rawDistY);
+              e.stateTimer = 1.95;
             } else {
-              // Standard flyer thrower
-              this.projectiles.push({
-                x: eCx + e.facing * 14,
-                y: e.y + 16,
-                vx: e.facing * 205,
-                vy: -310,
-                radius: 8,
-                kind: 'flyer',
-                active: true,
-                rotation: 0,
-              });
-              e.stateTimer = 2.1;
+              this.spawnEnemyProjectile(e, 'flyer', distX, rawDistY);
+              e.stateTimer = 2.05;
             }
+            e.pendingAction = undefined;
             e.aiState = 'patrol';
           }
         }
       } else {
-        // Standard Protester patrol
-        e.x += e.vx * dt;
-        e.walkPhase += dt * 10;
-        if (e.x <= e.minX) {
-          e.x = e.minX;
-          e.vx = Math.abs(e.baseSpeed);
-          e.facing = 1;
-        } else if (e.x >= e.maxX) {
-          e.x = e.maxX;
-          e.vx = -Math.abs(e.baseSpeed);
-          e.facing = -1;
+        // Standard Protester patrol + periodic tomato/flyer throwing!
+        if (e.aiState === 'patrol') {
+          e.x += e.vx * dt;
+          e.walkPhase += dt * 10;
+          if (e.x <= e.minX) {
+            e.x = e.minX;
+            e.vx = Math.abs(e.baseSpeed);
+            e.facing = 1;
+          } else if (e.x >= e.maxX) {
+            e.x = e.maxX;
+            e.vx = -Math.abs(e.baseSpeed);
+            e.facing = -1;
+          }
+
+          e.throwTimer -= dt;
+          if (e.throwTimer <= 0 && absDistX < 400 && distY < 200) {
+            e.aiState = 'windup';
+            e.pendingAction = 'throw';
+            e.stateTimer = 0.44;
+            e.facing = distX >= 0 ? 1 : -1;
+            audioEngine.playWindup();
+          }
+        } else if (e.aiState === 'windup') {
+          e.facing = distX >= 0 ? 1 : -1;
+          e.stateTimer -= dt;
+          if (e.stateTimer <= 0) {
+            const throwKind: Projectile['kind'] =
+              Math.floor(this.elapsedTime * 3 + e.x) % 3 === 0 ? 'flyer' : 'tomato';
+            this.spawnEnemyProjectile(e, throwKind, distX, rawDistY);
+            e.throwTimer = 2.7;
+            e.pendingAction = undefined;
+            e.aiState = 'patrol';
+            e.vx = e.facing * e.baseSpeed;
+          }
         }
       }
 
@@ -894,6 +946,36 @@ export class GameEngine {
     }
 
     this.enemies = this.enemies.filter((e) => !(e.aiState === 'squashed' && e.squashTimer <= 0));
+  }
+
+  private spawnEnemyProjectile(
+    e: Enemy,
+    kind: Projectile['kind'],
+    distX: number,
+    rawDistY: number
+  ): void {
+    const eCx = e.x + e.w / 2;
+    const startX = eCx + e.facing * 14;
+    const startY = e.y + 15;
+    const absDx = Math.max(40, Math.abs(distX));
+    const flightT = Math.max(0.55, Math.min(0.92, absDx / 290));
+    const dir = distX >= 0 ? 1 : -1;
+    const vx = dir * Math.max(150, Math.min(315, absDx / flightT));
+    // Parabolic aim considering gravity = 680
+    const rawVy = (rawDistY - 0.5 * 680 * flightT * flightT) / flightT;
+    const vy = Math.max(-470, Math.min(-210, rawVy));
+
+    this.projectiles.push({
+      x: startX,
+      y: startY,
+      vx,
+      vy,
+      radius: kind === 'soccer_ball' ? 10 : kind === 'brick' || kind === 'wrench' ? 9 : 8,
+      kind,
+      active: true,
+      rotation: 0,
+      ttl: kind === 'soccer_ball' ? 1 : undefined,
+    });
   }
 
   private handleStompEnemy(e: Enemy): void {
@@ -919,6 +1001,7 @@ export class GameEngine {
     } else {
       // Boss knocked into rage windup
       e.aiState = 'windup';
+      e.pendingAction = 'charge';
       e.stateTimer = 0.45;
       this.spawnFloatingText(e.x + e.w / 2, e.y - 12, 'COLPITO!', '#FB923C');
     }
@@ -951,35 +1034,50 @@ export class GameEngine {
       pr.y += pr.vy * dt;
       pr.rotation += dt * 9;
 
-      // Ground impact for vomit_arc (creates puddle) and bottle (shatters into sparks)
-      if (pr.kind === 'vomit_arc' || pr.kind === 'bottle') {
-        let hitGroundY: number | null = null;
-        for (const plat of this.level.platforms) {
-          if (
-            pr.x >= plat.x + 6 &&
-            pr.x <= plat.x + plat.w - 6 &&
-            pr.y + pr.radius >= plat.y &&
-            pr.y - pr.vy * dt <= plat.y + 14 &&
-            pr.vy > 0
-          ) {
-            hitGroundY = plat.y;
-            break;
-          }
+      // Ground / solid platform collision for thrown objects
+      let hitGroundY: number | null = null;
+      for (const plat of this.level.platforms) {
+        if (plat.oneWay) continue;
+        if (
+          pr.x >= plat.x + 4 &&
+          pr.x <= plat.x + plat.w - 4 &&
+          pr.y + pr.radius >= plat.y &&
+          pr.y - pr.vy * dt <= plat.y + 16 &&
+          pr.vy > 0
+        ) {
+          hitGroundY = plat.y;
+          break;
         }
-        if (hitGroundY !== null) {
-          if (pr.kind === 'vomit_arc') {
-            pr.kind = 'vomit_puddle';
-            pr.y = hitGroundY - 2;
-            pr.vx = 0;
-            pr.vy = 0;
-            pr.ttl = 3.2;
-            continue;
-          } else {
-            pr.active = false;
-            this.spawnBurst(pr.x, hitGroundY - 4, '#F59E0B', 10, 140);
-            this.spawnBurst(pr.x, hitGroundY - 4, '#FEF08A', 5, 110);
-            continue;
-          }
+      }
+
+      if (hitGroundY !== null) {
+        if (pr.kind === 'vomit_arc') {
+          pr.kind = 'vomit_puddle';
+          pr.y = hitGroundY - 2;
+          pr.vx = 0;
+          pr.vy = 0;
+          pr.ttl = 3.2;
+          continue;
+        } else if (pr.kind === 'soccer_ball' && (pr.ttl ?? 0) > 0) {
+          // Soccer ball bounces once!
+          pr.y = hitGroundY - pr.radius;
+          pr.vy = -290;
+          pr.ttl = 0;
+          this.spawnBurst(pr.x, hitGroundY - 2, '#E2E8F0', 5, 80);
+        } else {
+          pr.active = false;
+          const burstColor =
+            pr.kind === 'bottle'
+              ? '#F59E0B'
+              : pr.kind === 'tomato'
+                ? '#EF4444'
+                : pr.kind === 'flyer'
+                  ? '#FEF3C7'
+                  : pr.kind === 'wrench'
+                    ? '#CBD5E1'
+                    : '#94A3B8';
+          this.spawnBurst(pr.x, hitGroundY - 4, burstColor, 8, 125);
+          continue;
         }
       }
 
@@ -990,10 +1088,25 @@ export class GameEngine {
 
       if (
         p.invulnTimer <= 0 &&
-        this.aabb(p.x + 3, p.y + 3, p.w - 6, p.h - 6, pr.x - pr.radius, pr.y - pr.radius, pr.radius * 2, pr.radius * 2)
+        this.aabb(
+          p.x + 3,
+          p.y + 3,
+          p.w - 6,
+          p.h - 6,
+          pr.x - pr.radius,
+          pr.y - pr.radius,
+          pr.radius * 2,
+          pr.radius * 2
+        )
       ) {
         pr.active = false;
-        this.spawnBurst(pr.x, pr.y, pr.kind === 'vomit_arc' ? '#84CC16' : '#EF4444', 8, 120);
+        const hitColor =
+          pr.kind === 'vomit_arc'
+            ? '#84CC16'
+            : pr.kind === 'bottle'
+              ? '#F59E0B'
+              : '#EF4444';
+        this.spawnBurst(pr.x, pr.y, hitColor, 9, 130);
         this.damagePlayer(pr.x);
       }
     }
@@ -1055,6 +1168,7 @@ export class GameEngine {
         };
 
         this.clearAllInputs();
+        audioEngine.stopMusic();
         if (this.levelIndex + 1 >= LEVELS.length) {
           this.screen = 'VICTORY';
           audioEngine.playVictory();
@@ -1110,6 +1224,7 @@ export class GameEngine {
     if (this.lives <= 0) {
       this.lives = 0;
       this.clearAllInputs();
+      audioEngine.stopMusic();
       this.screen = 'GAME_OVER';
       audioEngine.playGameOver();
       this.emitHud(true);
@@ -1127,6 +1242,7 @@ export class GameEngine {
     if (this.lives <= 0) {
       this.lives = 0;
       this.clearAllInputs();
+      audioEngine.stopMusic();
       this.screen = 'GAME_OVER';
       audioEngine.playGameOver();
       this.emitHud(true);

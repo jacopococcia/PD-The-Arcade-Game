@@ -129,6 +129,8 @@ export interface Enemy {
   shoutText: string;
   shoutTimer: number;
   walkPhase: number;
+  throwTimer: number;
+  pendingAction?: 'charge' | 'throw';
 }
 
 export interface Projectile {
@@ -137,7 +139,15 @@ export interface Projectile {
   vx: number;
   vy: number;
   radius: number;
-  kind: 'tomato' | 'flyer' | 'bottle' | 'vomit_arc' | 'vomit_puddle';
+  kind:
+    | 'tomato'
+    | 'flyer'
+    | 'bottle'
+    | 'vomit_arc'
+    | 'vomit_puddle'
+    | 'soccer_ball'
+    | 'wrench'
+    | 'brick';
   active: boolean;
   rotation: number;
   ttl?: number;
@@ -189,7 +199,15 @@ export interface LevelConfig {
   landmarks?: LevelLandmark[];
   enemies: Omit<
     Enemy,
-    'vy' | 'aiState' | 'stateTimer' | 'hitFlash' | 'squashTimer' | 'shoutTimer' | 'walkPhase'
+    | 'vy'
+    | 'aiState'
+    | 'stateTimer'
+    | 'hitFlash'
+    | 'squashTimer'
+    | 'shoutTimer'
+    | 'walkPhase'
+    | 'throwTimer'
+    | 'pendingAction'
   >[];
 }
 

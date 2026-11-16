@@ -413,8 +413,10 @@ function drawPaglietaHillsAndBorgo(
   }
 
   // Front hill wave
-  for (let bx = start; bx < scroll + viewW + span; bx += span) {
-    const px = bx - scroll * 1.15;
+  const frontScroll = scroll * 1.15;
+  const frontStart = Math.floor(frontScroll / span) * span - span;
+  for (let bx = frontStart; bx < frontScroll + viewW + span; bx += span) {
+    const px = bx - frontScroll;
     ctx.fillStyle = palette.hillFront;
     ctx.beginPath();
     ctx.moveTo(px, 600);
@@ -2043,19 +2045,25 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number): void 
   // Unflipped overlays above enemy (HP pips for boss, Windup "!", or shout bubble)
   if (e.aiState !== 'squashed') {
     if (isBoss && e.maxHp > 1) {
+      const startPipX = cx - ((e.maxHp - 1) * 16) / 2;
       for (let i = 0; i < e.maxHp; i++) {
         ctx.fillStyle = i < e.hp ? '#EF4444' : '#334155';
         ctx.strokeStyle = '#FFFFFF';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(cx - 8 + i * 16, e.y - 14, 5, 0, Math.PI * 2);
+        ctx.arc(startPipX + i * 16, e.y - 14, 5, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
       }
     }
 
     if (isWindup) {
-      ctx.fillStyle = e.kind === 'drunk_citizen' ? '#84CC16' : '#EF4444';
+      ctx.fillStyle =
+        e.kind === 'drunk_citizen'
+          ? '#84CC16'
+          : e.pendingAction === 'throw'
+            ? '#F59E0B'
+            : '#EF4444';
       ctx.font = '800 22px "Bricolage Grotesque", sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(e.kind === 'drunk_citizen' ? '🤢' : '!', cx, e.y - 16);
@@ -2124,7 +2132,42 @@ function drawProjectile(ctx: CanvasRenderingContext2D, pr: Projectile): void {
     ctx.beginPath();
     ctx.arc(-2, -2, 3, 0, Math.PI * 2);
     ctx.fill();
+  } else if (pr.kind === 'soccer_ball') {
+    // Classic black-and-white soccer ball
+    ctx.fillStyle = '#F8FAFC';
+    ctx.beginPath();
+    ctx.arc(0, 0, pr.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#0F172A';
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+    ctx.fillStyle = '#0F172A';
+    ctx.beginPath();
+    ctx.arc(0, 0, 3.2, 0, Math.PI * 2);
+    ctx.arc(-5, -4, 2.2, 0, Math.PI * 2);
+    ctx.arc(5, 4, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (pr.kind === 'wrench') {
+    // Spinning steel wrench
+    ctx.fillStyle = '#CBD5E1';
+    ctx.fillRect(-9, -2.5, 18, 5);
+    ctx.fillStyle = '#64748B';
+    ctx.beginPath();
+    ctx.arc(-9, 0, 4.5, 0.5, Math.PI * 2 - 0.5);
+    ctx.arc(9, 0, 4.5, Math.PI + 0.5, Math.PI - 0.5);
+    ctx.fill();
+  } else if (pr.kind === 'brick') {
+    // Spinning red/terracotta street brick
+    ctx.fillStyle = '#B91C1C';
+    ctx.fillRect(-8, -5, 16, 10);
+    ctx.strokeStyle = '#7F1D1D';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(-8, -5, 16, 10);
+    ctx.fillStyle = '#FCA5A5';
+    ctx.fillRect(-5, -2, 4, 2);
+    ctx.fillRect(1, 1, 4, 2);
   } else {
+    // Tomato
     ctx.fillStyle = '#EF4444';
     ctx.beginPath();
     ctx.arc(0, 0, pr.radius, 0, Math.PI * 2);

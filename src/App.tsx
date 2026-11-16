@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  Music,
   Pause,
   Play,
   RotateCcw,
@@ -11,6 +12,7 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
+import { getLevelTrackTitle } from './game/audio';
 import { GameEngine } from './game/engine';
 import { LEVELS } from './game/levels';
 import { getMayorPortraitDataUrl } from './game/mayorSprite';
@@ -365,6 +367,12 @@ export default function App() {
                 <span aria-hidden="true">·</span>
                 <span className="truncate max-w-[200px] sm:max-w-none">{hud.levelName}</span>
               </div>
+              <div className="hidden items-center gap-1.5 text-[11px] text-amber-200/75 sm:flex">
+                <Music className="h-3 w-3 shrink-0" />
+                <span className="truncate">
+                  {hud.muted ? 'Audio disattivato' : getLevelTrackTitle(hud.levelIndex)}
+                </span>
+              </div>
             </div>
 
             {/* Top-Right: Cocktails, Score, Time & Controls */}
@@ -490,6 +498,10 @@ export default function App() {
             <h2 className="font-display text-2xl font-extrabold text-white">Gioco in Pausa</h2>
             <p className="mt-1 text-sm text-stone-400">
               Livello {hud.levelIndex + 1} · {hud.levelName}
+            </p>
+            <p className="mt-1 flex items-center justify-center gap-1.5 text-xs text-amber-300/85">
+              <Music className="h-3.5 w-3.5 shrink-0" />
+              <span>{getLevelTrackTitle(hud.levelIndex)}</span>
             </p>
 
             <div className="mt-6 flex flex-col gap-2.5">
