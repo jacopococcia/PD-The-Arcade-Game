@@ -12,13 +12,14 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
+import backdropImg from './assets/images/paglieta_title_backdrop_1794818977156.jpg';
 import { getLevelTrackTitle } from './game/audio';
 import { GameEngine } from './game/engine';
 import { LEVELS } from './game/levels';
 import { getMayorPortraitDataUrl } from './game/mayorSprite';
 import { HudSnapshot } from './game/types';
 
-const BACKDROP_SRC = '/src/assets/images/paglieta_title_backdrop_1794818977156.jpg';
+const BACKDROP_SRC = backdropImg;
 
 const INITIAL_HUD: HudSnapshot = {
   screen: 'TITLE_MENU',

@@ -13,8 +13,36 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
-  <body class="bg-stone-950 text-stone-100 antialiased selection:bg-amber-500/30">
+  <body style="background-color:#0c0a09;color:#f5f5f4" class="bg-stone-950 text-stone-100 antialiased selection:bg-amber-500/30">
     <div id="root"></div>
+    <script>
+      (function () {
+        var shown = false;
+        function showBootError(msg) {
+          if (shown) return;
+          var root = document.getElementById('root');
+          if (!root || root.childElementCount > 0) return;
+          shown = true;
+          root.innerHTML =
+            '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:system-ui,sans-serif;background:#0c0a09;color:#f5f5f4;text-align:center">' +
+            '<div style="max-width:480px;background:#1c1917;border:1px solid #44403c;border-radius:16px;padding:24px">' +
+            '<h1 style="margin:0 0 8px;font-size:20px;color:#fbbf24">Il Sindaco di Paglieta</h1>' +
+            '<p style="margin:0;font-size:14px;line-height:1.5;color:#d6d3d1">' + msg + '</p>' +
+            '</div></div>';
+        }
+        window.addEventListener('error', function (e) {
+          showBootError('Errore di avvio: ' + (e && e.message ? e.message : 'impossibile caricare gli script.'));
+        });
+        window.setTimeout(function () {
+          var root = document.getElementById('root');
+          if (root && root.childElementCount === 0) {
+            showBootError(
+              'Il gioco non è stato ancora compilato su questa pagina. Se stai usando GitHub Pages, verifica che il workflow "Deploy to GitHub Pages" nella scheda Actions di GitHub sia stato eseguito con successo.'
+            );
+          }
+        }, 3500);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
